@@ -14,6 +14,8 @@ class OptionType(Enum):
     AsianPut = "asian_put"
     BarrierCall = "barrier_call"
     BarrierPut = "barrier_put"
+    DoubleBarrierCall = "double_barrier_call"
+    DoubleBarrierPut = "double_barrier_put"
 
     @staticmethod
     def payoff_call(K, St, **kwargs):
@@ -83,6 +85,21 @@ class OptionType(Enum):
         elif type == "down and out":
             return 0 if any(hist < B) else OptionType.payoff_put(K, St)
 
+    @staticmethod
+    def payoff_double_barrier_call(K, St, **kwargs):
+        B1 = kwargs['B1']
+        B2 = kwargs['B2']
+        hist = kwargs['history']
+        return 0 if any(hist > B2) or any(hist < B1) else OptionType.payoff_call(K, St)
+
+    @staticmethod
+    def payoff_double_barrier_put(K, St, **kwargs):
+        B1 = kwargs['B1']
+        B2 = kwargs['B2']
+        hist = kwargs['history']
+        return 0 if any(hist > B2) or any(hist < B1) else OptionType.payoff_put(K, St)
+
+
     def payoff(self, K, St, **kwargs):
         match self:
             case OptionType.Call:
@@ -109,5 +126,22 @@ class OptionType(Enum):
                 return self.payoff_barrier_call(K, St, **kwargs)
             case OptionType.BarrierPut:
                 return self.payoff_barrier_put(K, St, **kwargs)
+            case OptionType.DoubleBarrierCall:
+                return self.payoff_double_barrier_call(K, St, **kwargs)
+            case OptionType.DoubleBarrierPut:
+                return self.payoff_double_barrier_put(K, St, **kwargs)
             case _:
                 raise ValueError(f"Unknown option type: {self}")
+
+
+# List of option types that are history-dependent.
+HIST_DEPENDENT = [
+    OptionType.LookbackCall,
+    OptionType.LookbackPut,
+    OptionType.AsianCall,
+    OptionType.AsianPut,
+    OptionType.BarrierCall,
+    OptionType.BarrierPut,
+    OptionType.DoubleBarrierCall,
+    OptionType.DoubleBarrierPut,
+]
