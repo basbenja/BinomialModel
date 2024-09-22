@@ -1,7 +1,12 @@
 import itertools
 import numpy as np
 
+from enum import Enum
 from tabulate import tabulate
+
+class PositionType(Enum):
+    LONG = "long"
+    SHORT = "short"
 
 def stock_prices(S0, u, d, n, hist_dependent=False):
     if hist_dependent:

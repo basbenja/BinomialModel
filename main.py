@@ -1,5 +1,8 @@
-from binomialmodel import *
+from binomialmodel import binomial
 from option import *
+from payoff_plot import payoff_plot
+from stock import Stock
+from utils import pretty_table
 
 option = AsianOption(OptionType.CALL, K=18, T=3)
 T = option.T
@@ -17,3 +20,10 @@ Delta = pretty_table(Delta, T, 'Delta')
 print(S)
 print(V)
 print(Delta)
+
+
+portfolio = [
+    VanillaOption(type="put", K=100, T=5, position=PositionType.LONG, premium=10),
+    Stock(position=PositionType.LONG, S0=100)
+]
+payoff_plot(portfolio, revenue=True)

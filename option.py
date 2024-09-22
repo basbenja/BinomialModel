@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
+from utils import PositionType
 
 import numpy as np
 
@@ -16,20 +17,41 @@ class BarrierType(Enum):
 TRAJECTORY_DEPENDENT_CLASSES = ['LookbackOption', 'AsianOption', 'BarrierOption']
 
 class Option(ABC):
-    def __init__(self, type: OptionType, K: float, T: float):
-        if not isinstance(type, OptionType):
-            raise ValueError("Invalid option type. It should be either 'call' or 'put'")
-        self.type = type
+    def __init__(
+        self,
+        type: str,
+        K: float,
+        T: float,
+        premium: float = 0,
+        position: PositionType = PositionType.LONG,
+        **kwargs
+    ):
+        if isinstance(type, str):
+            try:
+                self.type = OptionType(type.lower())
+            except ValueError:
+                raise ValueError(f"Invalid option type '{type}'. Must be 'call' or 'put'.")
+        else:
+            raise ValueError("Option type should be provided as a string ('call' or 'put').")
+        if not isinstance(position, PositionType):
+            raise ValueError("Invalid position type. It should be either 'long' or 'short'")
         self.K = K
         self.T = T
+        self.premium = premium
+        self.position = position
         self.name = self.__class__.__name__
         self._is_trajectory_dependent = self.name in TRAJECTORY_DEPENDENT_CLASSES
 
-    def __repr__(self):
-        return f"Option(Name={self.name}, Type={self.type.value}, K={self.K}, T={self.T})"
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def __str__(self):
+        return (f"{self.name}, {self.type.value}, {self.position.value}, "
+                f"K={self.K}, T={self.T}")
 
     def __repr__(self):
-        return f"Option(Name={self.name}, Type={self.type.value}, K={self.K}, T={self.T})"
+        return (f"{self.name}, {self.type.value}, {self.position.value}, "
+                f"K={self.K}, T={self.T}")
 
     @property
     def is_trajectory_dependent(self):
@@ -39,22 +61,22 @@ class Option(ABC):
     def payoff(self, S_T, **kwargs):
         pass
 
+    def revenue(self, S_T, **kwargs):
+        if self.position == PositionType.LONG:
+            return self.payoff(S_T, **kwargs) - self.premium
+        else:
+            return self.payoff(S_T, **kwargs) + self.premium
+
 
 class VanillaOption(Option):
-    def __init__(self, type: OptionType, K: float, T: float):
-        super().__init__(type, K, T)
-
     def payoff(self, S_T):
         if self.type == OptionType.CALL:
-            return max(S_T - self.K, 0)
+            base_payoff = max(S_T - self.K, 0)
         else:
-            return max(self.K - S_T, 0)
+            base_payoff = max(self.K - S_T, 0)
+        return base_payoff if self.position == PositionType.LONG else -base_payoff
 
 class BinaryOption(Option):
-    def __init__(self, type: OptionType, K: float, T: float, B: float):
-        super().__init__(type, K, T)
-        self.B = B
-
     def payoff(self, S_T):
         if self.type == OptionType.CALL:
             return self.B if S_T > self.K else 0
@@ -62,10 +84,6 @@ class BinaryOption(Option):
             return self.B if S_T < self.K else 0
 
 class PowerOption(Option):
-    def __init__(self, type: OptionType, K: float, T: float, power: float):
-        super().__init__(type, K, T)
-        self.power = power
-
     def payoff(self, S_T):
         if self.type == OptionType.CALL:
             return max(S_T - self.K, 0)**self.power
@@ -73,9 +91,6 @@ class PowerOption(Option):
             return max(self.K - S_T, 0)**self.power
 
 class LookbackOption(Option):
-    def __init__(self, type: OptionType, K: float, T: float):
-        super().__init__(type, K, T)
-
     def payoff(self, S_T, trajectory):
         if self.type == OptionType.CALL:
             return S_T - min(trajectory)
@@ -83,9 +98,6 @@ class LookbackOption(Option):
             return max(trajectory) - S_T
 
 class AsianOption(Option):
-    def __init__(self, type: OptionType, K: float, T: float):
-        super().__init__(type, K, T)
-
     def payoff(self, S_T, trajectory):
         if self.type == OptionType.CALL:
             return max(np.mean(trajectory) - self.K, 0)
@@ -93,10 +105,6 @@ class AsianOption(Option):
             return max(self.K - np.mean(trajectory), 0)
 
 class BarrierOption(Option):
-    def __init__(self, type: OptionType, barrier_type: BarrierType, K: float, T: float):
-        super().__init__(type, K, T)
-        self.barrier_type = barrier_type
-
     def payoff(self, S_T, trajectory):
         if self.type == OptionType.CALL:
             if self.barrier_type == BarrierType.UP_AND_OUT:
